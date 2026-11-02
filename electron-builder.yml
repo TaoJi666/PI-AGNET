@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: pi-agnet-scaffold
+appId: com.taoji.pi
+productName: Pi
 directories:
   buildResources: build
 files:
@@ -11,8 +11,9 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  - node_modules/@earendil-works/pi-coding-agent/**
 win:
-  executableName: pi-agnet-scaffold
+  executableName: pi-agent
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
