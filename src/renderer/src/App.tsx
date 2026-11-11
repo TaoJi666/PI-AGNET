@@ -4,6 +4,7 @@ import {
   Download,
   Folder,
   Plus,
+  Search,
   Workflow,
   Send,
   Settings,
@@ -16,6 +17,8 @@ import type {
   Idea,
   PublicSettings,
   Schedule,
+  LibraryHit,
+  LibraryState,
   Session,
   SettingsInput,
   ToolCard
@@ -24,6 +27,7 @@ import { DEFAULT_HUB_MODEL, HUB_MODELS } from '@shared/hub'
 import { BUILT_IN_IDEAS } from '@shared/library'
 import type { WorkflowSince } from '@shared/workflows'
 import { FilesView } from '@renderer/features/FilesView'
+import { SearchView } from '@renderer/features/SearchView'
 import { IdeasView } from '@renderer/features/IdeasView'
 import { TasksView } from '@renderer/features/TasksView'
 import { WorkflowsView } from '@renderer/features/WorkflowsView'
@@ -34,7 +38,7 @@ import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 
-type View = 'chat' | 'workflows' | 'ideas' | 'tasks' | 'files' | 'settings'
+type View = 'chat' | 'workflows' | 'search' | 'ideas' | 'tasks' | 'files' | 'settings'
 
 function App(): React.JSX.Element {
   const [sessions, setSessions] = useState<Session[]>([])
@@ -52,6 +56,12 @@ function App(): React.JSX.Element {
   const [workflowSince, setWorkflowSince] = useState<WorkflowSince>('today')
   const [workflowError, setWorkflowError] = useState('')
   const [workflowRunning, setWorkflowRunning] = useState(false)
+  const [library, setLibrary] = useState<LibraryState | null>(null)
+  const [libraryQuery, setLibraryQuery] = useState('')
+  const [libraryHits, setLibraryHits] = useState<LibraryHit[]>([])
+  const [libraryError, setLibraryError] = useState('')
+  const [libraryIndexing, setLibraryIndexing] = useState(false)
+  const [librarySearching, setLibrarySearching] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const active = sessions.find((session) => session.id === activeId) ?? null
@@ -89,6 +99,22 @@ function App(): React.JSX.Element {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [active?.messages, active?.running, approval?.id])
+
+  useEffect(() => {
+    if (view !== 'search') return
+    let alive = true
+    void window.api.libraryStatus().then(
+      (next) => {
+        if (alive) setLibrary(next)
+      },
+      (error: unknown) => {
+        if (alive) setLibraryError(error instanceof Error ? error.message : 'Milvus 没有连上')
+      }
+    )
+    return () => {
+      alive = false
+    }
+  }, [view])
 
   async function createChat(): Promise<string> {
     const session = await window.api.createSession()
@@ -158,6 +184,45 @@ function App(): React.JSX.Element {
     }
   }
 
+  async function indexLibrary(): Promise<void> {
+    setLibraryIndexing(true)
+    setLibraryError('')
+    try {
+      setLibrary(await window.api.indexLibrary())
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : '索引失败')
+    } finally {
+      setLibraryIndexing(false)
+    }
+  }
+
+  async function searchDocuments(): Promise<void> {
+    setLibrarySearching(true)
+    setLibraryError('')
+    try {
+      setLibraryHits(await window.api.searchLibrary(libraryQuery))
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : '查找失败')
+    } finally {
+      setLibrarySearching(false)
+    }
+  }
+
+  async function askLibrary(): Promise<void> {
+    setLibrarySearching(true)
+    setLibraryError('')
+    try {
+      const session = await window.api.askLibrary(libraryQuery)
+      setSessions((current) => [session, ...current.filter((item) => item.id !== session.id)])
+      setActiveId(session.id)
+      setView('chat')
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : '没有发出提问')
+    } finally {
+      setLibrarySearching(false)
+    }
+  }
+
   async function runTask(id: string): Promise<void> {
     const result = await window.api.runSchedule(id)
     setSchedules(result.schedules)
@@ -205,6 +270,12 @@ function App(): React.JSX.Element {
             label="工作流"
             active={view === 'workflows'}
             onClick={() => setView('workflows')}
+          />
+          <NavButton
+            icon={Search}
+            label="检索"
+            active={view === 'search'}
+            onClick={() => setView('search')}
           />
           <NavButton
             icon={Sparkles}
@@ -293,6 +364,20 @@ function App(): React.JSX.Element {
             onModel={(model) => void changeModel(model)}
             onRename={(title) => active && void rename(active.id, title)}
             onExport={() => active && void exportChat(active.id)}
+          />
+        )}
+        {view === 'search' && (
+          <SearchView
+            state={library}
+            query={libraryQuery}
+            hits={libraryHits}
+            error={libraryError}
+            indexing={libraryIndexing}
+            searching={librarySearching}
+            onQuery={setLibraryQuery}
+            onIndex={() => void indexLibrary()}
+            onSearch={() => void searchDocuments()}
+            onAsk={() => void askLibrary()}
           />
         )}
         {view === 'ideas' && (
