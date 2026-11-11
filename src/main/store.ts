@@ -154,6 +154,7 @@ export function saveSchedule(input: ScheduleInput): Schedule[] {
     prompt,
     time,
     enabled: true,
+    workflowId: input.workflowId,
     lastMessage: '尚未运行'
   })
   flushStore()

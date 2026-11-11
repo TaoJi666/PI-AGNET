@@ -19,9 +19,10 @@ export class AgentHost {
     this.sessionDir = dir
   }
 
-  async send(sessionId: string, text: string): Promise<void> {
+  async send(sessionId: string, text: string, prompt?: string): Promise<void> {
     const content = text.trim()
-    if (!content) return
+    const instruction = (prompt ?? text).trim()
+    if (!content || !instruction) return
     const current = store.listSessions().find((session) => session.id === sessionId)
     if (!current || current.running) return
     const placeholder: ChatMessage = {
@@ -51,7 +52,7 @@ export class AgentHost {
 
     try {
       const process = await this.processFor(sessionId)
-      await process.prompt(content)
+      await process.prompt(instruction)
     } catch (error) {
       this.fail(sessionId, error instanceof Error ? error.message : 'Pi 启动失败')
     }

@@ -4,9 +4,11 @@ import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import type { ApprovalResponse, ScheduleInput, Session, SettingsInput } from '../shared/contract'
+import type { WorkflowValues } from '../shared/workflows'
 import { AgentHost } from './agent'
 import { listWorkspaceFiles } from './files'
 import { runSchedule, startScheduler } from './scheduler'
+import { runWorkflow } from './workflow-run'
 import {
   createIdea,
   createSession,
@@ -97,6 +99,9 @@ function registerIpc(agent: AgentHost): void {
     if (!session) throw new Error('任务不存在')
     return { session, schedules: listSchedules() }
   })
+  ipcMain.handle('workflow:run', (_event, id: unknown, values: unknown) =>
+    runWorkflow(agent, String(id), normalizeWorkflowValues(values))
+  )
   ipcMain.handle('files:list', (_event, query: unknown) => listWorkspaceFiles(String(query ?? '')))
   ipcMain.handle('chat:send', (_event, sessionId: unknown, text: unknown) =>
     agent.send(String(sessionId), String(text ?? ''))
@@ -128,7 +133,8 @@ function normalizeSchedule(value: unknown): ScheduleInput {
   return {
     title: String(input.title ?? ''),
     prompt: String(input.prompt ?? ''),
-    time: String(input.time ?? '')
+    time: String(input.time ?? ''),
+    workflowId: typeof input.workflowId === 'string' ? input.workflowId : undefined
   }
 }
 
@@ -156,6 +162,14 @@ function renderSession(session: Session): string {
     }
   }
   return lines.join('\n')
+}
+
+function normalizeWorkflowValues(value: unknown): WorkflowValues {
+  const input = (value ?? {}) as Partial<WorkflowValues>
+  return {
+    file: String(input.file ?? '').trim(),
+    since: input.since === 'week' ? 'week' : 'today'
+  }
 }
 
 function normalizeSettings(value: unknown): SettingsInput {

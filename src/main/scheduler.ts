@@ -8,6 +8,7 @@ import {
   markSchedule,
   renameSession
 } from './store'
+import { runWorkflow } from './workflow-run'
 
 export async function runSchedule(agent: AgentHost, id: string): Promise<Session | undefined> {
   const schedule = getSchedule(id)
@@ -33,12 +34,17 @@ async function runDue(agent: AgentHost, onChange: (schedules: Schedule[]) => voi
   if (due.length === 0) return
   for (const schedule of due) {
     markSchedule(schedule.id, current.day, `${current.time} 已发送`)
-    await launch(agent, schedule)
+    try {
+      await launch(agent, schedule)
+    } catch (error) {
+      markSchedule(schedule.id, current.day, error instanceof Error ? error.message : '没有运行')
+    }
   }
   onChange(listSchedules())
 }
 
 async function launch(agent: AgentHost, schedule: Schedule): Promise<Session> {
+  if (schedule.workflowId) return runWorkflow(agent, schedule.workflowId, { since: 'today' })
   const session = createSession()
   renameSession(session.id, schedule.title)
   await agent.send(session.id, schedule.prompt)

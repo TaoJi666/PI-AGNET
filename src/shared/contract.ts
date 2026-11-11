@@ -1,3 +1,5 @@
+import type { WorkflowValues } from './workflows'
+
 export type ToolCard = {
   id: string
   name: string
@@ -77,6 +79,7 @@ export type Schedule = {
   prompt: string
   time: string
   enabled: boolean
+  workflowId?: string
   lastRunOn?: string
   lastMessage?: string
 }
@@ -85,6 +88,7 @@ export type ScheduleInput = {
   title: string
   prompt: string
   time: string
+  workflowId?: string
 }
 
 export type WorkspaceFile = {
@@ -123,6 +127,7 @@ export type DesktopApi = {
   setScheduleEnabled: (id: string, enabled: boolean) => Promise<Schedule[]>
   deleteSchedule: (id: string) => Promise<Schedule[]>
   runSchedule: (id: string) => Promise<{ session: Session; schedules: Schedule[] }>
+  runWorkflow: (id: string, values: WorkflowValues) => Promise<Session>
   listFiles: (query: string) => Promise<WorkspaceFile[]>
   onEvent: (handler: (event: AppEvent) => void) => () => void
 }

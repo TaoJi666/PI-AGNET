@@ -24,6 +24,7 @@ const api: DesktopApi = {
   setScheduleEnabled: (id, enabled) => ipcRenderer.invoke('schedule:enabled', id, enabled),
   deleteSchedule: (id) => ipcRenderer.invoke('schedule:delete', id),
   runSchedule: (id) => ipcRenderer.invoke('schedule:run', id),
+  runWorkflow: (id, values) => ipcRenderer.invoke('workflow:run', id, values),
   listFiles: (query) => ipcRenderer.invoke('files:list', query),
   onEvent: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: AppEvent): void =>
