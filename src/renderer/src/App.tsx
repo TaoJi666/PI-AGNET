@@ -4,6 +4,7 @@ import {
   Download,
   Folder,
   Plus,
+  Workflow,
   Send,
   Settings,
   Sparkles,
@@ -21,9 +22,11 @@ import type {
 } from '@shared/contract'
 import { DEFAULT_HUB_MODEL, HUB_MODELS } from '@shared/hub'
 import { BUILT_IN_IDEAS } from '@shared/library'
+import type { WorkflowSince } from '@shared/workflows'
 import { FilesView } from '@renderer/features/FilesView'
 import { IdeasView } from '@renderer/features/IdeasView'
 import { TasksView } from '@renderer/features/TasksView'
+import { WorkflowsView } from '@renderer/features/WorkflowsView'
 import { MarkdownText } from '@renderer/components/markdown-text'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
@@ -31,7 +34,7 @@ import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 
-type View = 'chat' | 'ideas' | 'tasks' | 'files' | 'settings'
+type View = 'chat' | 'workflows' | 'ideas' | 'tasks' | 'files' | 'settings'
 
 function App(): React.JSX.Element {
   const [sessions, setSessions] = useState<Session[]>([])
@@ -44,6 +47,11 @@ function App(): React.JSX.Element {
   const [settings, setSettings] = useState<PublicSettings | null>(null)
   const [approval, setApproval] = useState<ApprovalRequest | null>(null)
   const [approvalValue, setApprovalValue] = useState('')
+  const [workflowId, setWorkflowId] = useState('read-file')
+  const [workflowFile, setWorkflowFile] = useState('')
+  const [workflowSince, setWorkflowSince] = useState<WorkflowSince>('today')
+  const [workflowError, setWorkflowError] = useState('')
+  const [workflowRunning, setWorkflowRunning] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const active = sessions.find((session) => session.id === activeId) ?? null
@@ -125,6 +133,31 @@ function App(): React.JSX.Element {
     await window.api.exportSession(id)
   }
 
+  function openWorkflow(id: string, file?: string): void {
+    setWorkflowId(id)
+    if (file !== undefined) setWorkflowFile(file)
+    setWorkflowError('')
+    setView('workflows')
+  }
+
+  async function runWorkflow(): Promise<void> {
+    setWorkflowRunning(true)
+    setWorkflowError('')
+    try {
+      const session = await window.api.runWorkflow(workflowId, {
+        file: workflowFile,
+        since: workflowSince
+      })
+      setSessions((current) => [session, ...current.filter((item) => item.id !== session.id)])
+      setActiveId(session.id)
+      setView('chat')
+    } catch (error) {
+      setWorkflowError(error instanceof Error ? error.message : '工作流没有运行')
+    } finally {
+      setWorkflowRunning(false)
+    }
+  }
+
   async function runTask(id: string): Promise<void> {
     const result = await window.api.runSchedule(id)
     setSchedules(result.schedules)
@@ -167,6 +200,12 @@ function App(): React.JSX.Element {
           />
         </div>
         <nav className="mt-3 grid gap-1 px-3">
+          <NavButton
+            icon={Workflow}
+            label="工作流"
+            active={view === 'workflows'}
+            onClick={() => setView('workflows')}
+          />
           <NavButton
             icon={Sparkles}
             label="灵感"
@@ -248,7 +287,7 @@ function App(): React.JSX.Element {
             onDraft={setDraft}
             onApprovalValue={setApprovalValue}
             onSubmit={() => void submit()}
-            onPrompt={(prompt) => void submit(prompt)}
+            onWorkflow={openWorkflow}
             onAbort={() => active && void window.api.abort(active.id)}
             onApproval={(confirmed, value) => void answerApproval(confirmed, value)}
             onModel={(model) => void changeModel(model)}
@@ -257,7 +296,29 @@ function App(): React.JSX.Element {
           />
         )}
         {view === 'ideas' && (
-          <IdeasView ideas={ideas} onChange={setIdeas} onUse={(prompt) => void submit(prompt)} />
+          <IdeasView
+            ideas={ideas}
+            onChange={setIdeas}
+            onUse={(prompt) => void submit(prompt)}
+            onOpen={openWorkflow}
+          />
+        )}
+        {view === 'workflows' && (
+          <WorkflowsView
+            workspace={settings?.workspace ?? ''}
+            selectedId={workflowId}
+            file={workflowFile}
+            since={workflowSince}
+            error={workflowError}
+            running={workflowRunning}
+            onSelect={(id) => {
+              setWorkflowId(id)
+              setWorkflowError('')
+            }}
+            onFile={setWorkflowFile}
+            onSince={setWorkflowSince}
+            onRun={() => void runWorkflow()}
+          />
         )}
         {view === 'tasks' && (
           <TasksView
@@ -269,7 +330,7 @@ function App(): React.JSX.Element {
         {view === 'files' && (
           <FilesView
             workspace={settings?.workspace ?? ''}
-            onRead={(path) => void submit(`阅读工作区文件 ${path}，先给结论，再引用关键内容。`)}
+            onRead={(path) => openWorkflow('read-file', path)}
             onInsert={(path) => {
               setDraft((current) => `${current}${current ? '\n' : ''}请看 ${path}`)
               setView('chat')
@@ -294,7 +355,7 @@ function ChatView({
   onDraft,
   onApprovalValue,
   onSubmit,
-  onPrompt,
+  onWorkflow,
   onAbort,
   onApproval,
   onModel,
@@ -310,7 +371,7 @@ function ChatView({
   onDraft: (value: string) => void
   onApprovalValue: (value: string) => void
   onSubmit: () => void
-  onPrompt: (prompt: string) => void
+  onWorkflow: (id: string) => void
   onAbort: () => void
   onApproval: (confirmed?: boolean, value?: string) => void
   onModel: (model: string) => void
@@ -373,7 +434,7 @@ function ChatView({
                     key={idea.id}
                     variant="outline"
                     size="sm"
-                    onClick={() => onPrompt(idea.prompt)}
+                    onClick={() => onWorkflow(idea.id)}
                   >
                     {idea.title}
                   </Button>

@@ -15,7 +15,11 @@ export function TasksView({
   onChange: (schedules: Schedule[]) => void
   onRun: (id: string) => void
 }): React.JSX.Element {
-  const [form, setForm] = useState<ScheduleInput>({ title: '', prompt: '', time: '09:00' })
+  const [form, setForm] = useState<ScheduleInput>({
+    title: '',
+    prompt: '',
+    time: '09:00'
+  })
 
   async function save(): Promise<void> {
     onChange(await window.api.saveSchedule(form))
@@ -96,7 +100,8 @@ export function TasksView({
                 setForm({
                   title: MORNING_TASK.title,
                   prompt: MORNING_TASK.prompt,
-                  time: MORNING_TASK.time
+                  time: MORNING_TASK.time,
+                  workflowId: MORNING_TASK.workflowId
                 })
               }
             >
@@ -120,7 +125,13 @@ export function TasksView({
           <Textarea
             value={form.prompt}
             placeholder="到点后交给 Pi 的任务"
-            onChange={(event) => setForm((current) => ({ ...current, prompt: event.target.value }))}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                prompt: event.target.value,
+                workflowId: undefined
+              }))
+            }
           />
           <Button
             type="submit"

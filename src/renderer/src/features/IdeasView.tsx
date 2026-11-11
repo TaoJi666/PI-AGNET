@@ -8,11 +8,13 @@ import { Textarea } from '@renderer/components/ui/textarea'
 export function IdeasView({
   ideas,
   onChange,
-  onUse
+  onUse,
+  onOpen
 }: {
   ideas: Idea[]
   onChange: (ideas: Idea[]) => void
   onUse: (prompt: string) => void
+  onOpen: (id: string) => void
 }): React.JSX.Element {
   const [title, setTitle] = useState('')
   const [prompt, setPrompt] = useState('')
@@ -30,7 +32,7 @@ export function IdeasView({
         <div>
           <h1 className="text-lg font-semibold tracking-tight">灵感</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            把重复任务收成可以直接交给 Pi 的提示。
+            内置条目会打开对应工作流。自己保存的仍直接交给 Pi。
           </p>
         </div>
         <div className="grid gap-3">
@@ -42,8 +44,11 @@ export function IdeasView({
                   <p className="mt-1 text-sm text-muted-foreground">{idea.summary}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <Button size="sm" onClick={() => onUse(idea.prompt)}>
-                    开始
+                  <Button
+                    size="sm"
+                    onClick={() => (idea.builtIn ? onOpen(idea.id) : onUse(idea.prompt))}
+                  >
+                    {idea.builtIn ? '打开' : '开始'}
                   </Button>
                   {!idea.builtIn && (
                     <Button
