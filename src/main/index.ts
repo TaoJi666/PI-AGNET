@@ -8,6 +8,8 @@ import type { WorkflowValues } from '../shared/workflows'
 import { AgentHost } from './agent'
 import { listWorkspaceFiles } from './files'
 import { runSchedule, startScheduler } from './scheduler'
+import { askLibrary, indexWorkspace, libraryStatus, searchLibrary, setLibraryDb } from './library'
+import { stopMilvus } from './milvus'
 import { runWorkflow } from './workflow-run'
 import {
   createIdea,
@@ -102,6 +104,10 @@ function registerIpc(agent: AgentHost): void {
   ipcMain.handle('workflow:run', (_event, id: unknown, values: unknown) =>
     runWorkflow(agent, String(id), normalizeWorkflowValues(values))
   )
+  ipcMain.handle('library:status', () => libraryStatus())
+  ipcMain.handle('library:index', () => indexWorkspace())
+  ipcMain.handle('library:search', (_event, query: unknown) => searchLibrary(String(query ?? '')))
+  ipcMain.handle('library:ask', (_event, query: unknown) => askLibrary(agent, String(query ?? '')))
   ipcMain.handle('files:list', (_event, query: unknown) => listWorkspaceFiles(String(query ?? '')))
   ipcMain.handle('chat:send', (_event, sessionId: unknown, text: unknown) =>
     agent.send(String(sessionId), String(text ?? ''))
@@ -205,6 +211,7 @@ app.whenReady().then(() => {
   const workspace = join(app.getPath('documents'), 'Pi')
   mkdirSync(workspace, { recursive: true })
   initStore(app.getPath('userData'), workspace)
+  setLibraryDb(join(app.getPath('userData'), 'milvus.db'))
   mkdirSync(publicSettings().workspace, { recursive: true })
 
   host = new AgentHost(() => mainWindow)
@@ -224,6 +231,7 @@ app.on('before-quit', () => {
   stopScheduler?.()
   host?.stopAll()
   flushStore()
+  void stopMilvus()
 })
 
 app.on('window-all-closed', () => {

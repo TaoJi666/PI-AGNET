@@ -91,6 +91,17 @@ export type ScheduleInput = {
   workflowId?: string
 }
 
+export type LibraryHit = {
+  path: string
+  text: string
+  score: number
+}
+
+export type LibraryState = {
+  workspace: string
+  chunks: number
+}
+
 export type WorkspaceFile = {
   name: string
   relativePath: string
@@ -128,6 +139,10 @@ export type DesktopApi = {
   deleteSchedule: (id: string) => Promise<Schedule[]>
   runSchedule: (id: string) => Promise<{ session: Session; schedules: Schedule[] }>
   runWorkflow: (id: string, values: WorkflowValues) => Promise<Session>
+  libraryStatus: () => Promise<LibraryState>
+  indexLibrary: () => Promise<LibraryState>
+  searchLibrary: (query: string) => Promise<LibraryHit[]>
+  askLibrary: (query: string) => Promise<Session>
   listFiles: (query: string) => Promise<WorkspaceFile[]>
   onEvent: (handler: (event: AppEvent) => void) => () => void
 }

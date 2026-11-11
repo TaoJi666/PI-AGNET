@@ -25,6 +25,10 @@ const api: DesktopApi = {
   deleteSchedule: (id) => ipcRenderer.invoke('schedule:delete', id),
   runSchedule: (id) => ipcRenderer.invoke('schedule:run', id),
   runWorkflow: (id, values) => ipcRenderer.invoke('workflow:run', id, values),
+  libraryStatus: () => ipcRenderer.invoke('library:status'),
+  indexLibrary: () => ipcRenderer.invoke('library:index'),
+  searchLibrary: (query) => ipcRenderer.invoke('library:search', query),
+  askLibrary: (query) => ipcRenderer.invoke('library:ask', query),
   listFiles: (query) => ipcRenderer.invoke('files:list', query),
   onEvent: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: AppEvent): void =>
